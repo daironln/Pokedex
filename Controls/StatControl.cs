@@ -46,9 +46,10 @@ public partial class StatControl : UserControl
         // valueLabel.ForeColor = Color.White;
         // valueLabel.AutoSize = false;
         // valueLabel.Size = new Size(30, 20);
-        // valueLabel.Location = new Point(260, 0);
         // valueLabel.TextAlign = ContentAlignment.MiddleRight;
+        // valueLabel.Location = new Point(100, 0);
 
+        // progressBar.Controls.Add(valueLabel);
         progressBar.Controls.Add(fillBar);
         container.Controls.Add(nameLabel);
         container.Controls.Add(progressBar);
