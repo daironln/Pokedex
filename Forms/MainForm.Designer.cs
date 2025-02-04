@@ -134,6 +134,21 @@ partial class MainForm
         mainPanel.SetColumnSpan(statsPanel, 2);
         
         this.Controls.Add(mainPanel);
+        
+        
+        //Events
+        this.searchBox.KeyDown += MainForm_Load;
+        this.searchBox.TextChanged += searchBox_TextChanged;
+        this.searchBox.LostFocus += (s, e) => HideSuggestions();
+        this.searchBox.KeyDown += (s, e) =>
+        {
+            if (e.KeyCode == Keys.Down && suggestionsListBox.Visible)
+            {
+                suggestionsListBox.Focus();
+                if (suggestionsListBox.Items.Count > 0)
+                    suggestionsListBox.SelectedIndex = 0;
+            }
+        };
     }
 
     #endregion

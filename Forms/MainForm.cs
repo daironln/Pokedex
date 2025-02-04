@@ -6,6 +6,7 @@ using System.Windows.Forms;
 using Newtonsoft.Json;
 using Pokedex.Models;
 using Pokedex.Controls;
+using Timer = System.Windows.Forms.Timer;
 
 namespace Pokedex.Forms;
 
@@ -26,13 +27,158 @@ public partial class MainForm : Form
         
     private HttpClient client = new HttpClient();
     private string apiUrl = "https://pokeapi.co/api/v2/pokemon/";
+    
+    private Timer searchDebounceTimer;
+    private List<string> allPokemonNames = new List<string>();
+    private ListBox suggestionsListBox;
 
     public MainForm()
     {
         InitializeComponent();
         ConfigureStyles();
+        
+        InitializeSearchSuggestions();
+        LoadAllPokemonNames();
 
-        this.searchBox.KeyDown += MainForm_Load;
+    }
+    
+    protected override bool ProcessCmdKey(ref Message msg, Keys keyData)
+    {
+        if (suggestionsListBox.Visible && keyData == Keys.Escape)
+        {
+            HideSuggestions();
+            return true;
+        }
+        return base.ProcessCmdKey(ref msg, keyData);
+    }
+
+    private void suggestionsListBox_LostFocus(object sender, EventArgs e)
+    {
+        if (!searchBox.Focused && !suggestionsListBox.Focused)
+            HideSuggestions();
+    }
+    
+    protected override void OnActivated(EventArgs e)
+    {
+        base.OnActivated(e);
+        if (suggestionsListBox.Visible && !suggestionsListBox.Focused)
+        {
+            HideSuggestions();
+        }
+    }
+    
+    private void InitializeSearchSuggestions()
+    {
+        searchDebounceTimer = new Timer { Interval = 300 };
+        searchDebounceTimer.Tick += async (s, e) =>
+        {
+            searchDebounceTimer.Stop();
+            await UpdateSuggestions(searchBox.Text);
+        };
+
+        suggestionsListBox = new ListBox
+        {
+            Visible = false,
+            BackColor = Color.FromArgb(50, 50, 50),
+            ForeColor = Color.White,
+            BorderStyle = BorderStyle.None,
+            Font = searchBox.Font,
+            IntegralHeight = false,
+            MaximumSize = new Size(searchBox.Width, 200),
+            Size = new Size(searchBox.Width, 0)
+        };
+        
+        suggestionsListBox.LostFocus += suggestionsListBox_LostFocus;
+        
+        suggestionsListBox.Click += (s, e) => SelectSuggestion();
+        suggestionsListBox.KeyPress += (s, e) =>
+        {
+            if (e.KeyChar == (char)Keys.Enter) SelectSuggestion();
+        };
+            
+        this.Controls.Add(suggestionsListBox);
+        suggestionsListBox.BringToFront();
+    }
+
+    private async void LoadAllPokemonNames()
+    {
+        try
+        {
+            var response = await client.GetAsync($"{apiUrl}?limit=1000");
+            if (response.IsSuccessStatusCode)
+            {
+                var json = await response.Content.ReadAsStringAsync();
+                var result = JsonConvert.DeserializeObject<PokemonListResult>(json);
+                allPokemonNames = result.Results.Select(p => p.Name).ToList();
+            }
+        }
+        catch
+        {
+            MessageBox.Show("Error buscando sugerencias");
+        }
+    }
+    
+    private void searchBox_TextChanged(object sender, EventArgs e)
+    {
+        searchDebounceTimer.Stop();
+        searchDebounceTimer.Start();
+        UpdateSuggestionsListBoxPosition();
+    }
+
+    private async Task UpdateSuggestions(string searchTerm)
+    {
+        var search = searchTerm.ToLower().Trim();
+            
+        if (string.IsNullOrWhiteSpace(search))
+        {
+            HideSuggestions();
+            return;
+        }
+
+        var filtered = allPokemonNames
+            .Where(name => name.Contains(search))
+            .Take(10)
+            .ToList();
+
+        if (filtered.Count == 0)
+        {
+            HideSuggestions();
+            return;
+        }
+        
+        ShowSuggestions(filtered);
+    }
+
+    private void ShowSuggestions(List<string> suggestions)
+    {
+        suggestionsListBox.Items.Clear();
+        suggestionsListBox.Items.AddRange(suggestions.Cast<object>().ToArray());
+        suggestionsListBox.Visible = true;
+        suggestionsListBox.Height = Math.Min(suggestionsListBox.PreferredHeight, 200);
+    }
+
+    private void HideSuggestions()
+    {
+        suggestionsListBox.Visible = false;
+        suggestionsListBox.Height = 0;
+    }
+
+    private void UpdateSuggestionsListBoxPosition()
+    {
+        var screenPos = searchBox.PointToScreen(new Point(0, searchBox.Height));
+        var formPos = this.PointToClient(screenPos);
+        suggestionsListBox.Location = formPos;
+        suggestionsListBox.Width = searchBox.Width;
+    }
+
+    private void SelectSuggestion()
+    {
+        if (suggestionsListBox.SelectedItem != null)
+        {
+            searchBox.Text = suggestionsListBox.SelectedItem.ToString();
+            searchButton.PerformClick();
+        }
+        HideSuggestions();
     }
         
     private void MainForm_Load(object sender, KeyEventArgs e)
