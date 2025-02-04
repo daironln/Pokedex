@@ -1,0 +1,11 @@
+{
+  "Version": 1,
+  "ProjectMap": {
+    "02158fed-acb4-4365-93c0-1f214c603acb": {
+      "ProjectGuid": "02158fed-acb4-4365-93c0-1f214c603acb",
+      "DisplayName": "Pokedex",
+      "ColorIndex": 0
+    }
+  },
+  "NextColorIndex": 1
+}
